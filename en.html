@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hook and Needle Size Converter</title>
+<meta name="theme-color" content="#0F766E">
+<link rel="manifest" href="manifest-en.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: one column. Kind switch (needles / hooks / steel hooks), source system + size picker, three result tiles, notes, full table. */
+:root{
+  --bg:#EDF0F4; --surface:#FFFFFF; --fg:#18202B; --muted:#5E6B7D; --line:#D5DBE4;
+  --accent:#C2185B; --on-accent:#FFFFFF; --teal:#0F766E; --hl:#E3F1EF;
+  --font-display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
+  --font-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14181F; --surface:#1D232D; --fg:#E8ECF2; --muted:#93A0B3; --line:#2C3544;
+    --accent:#FF7DAE; --on-accent:#14181F; --teal:#4FD1C0; --hl:#1F3535; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14181F; --surface:#1D232D; --fg:#E8ECF2; --muted:#93A0B3; --line:#2C3544;
+  --accent:#FF7DAE; --on-accent:#14181F; --teal:#4FD1C0; --hl:#1F3535; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--fg); font-family:var(--font-body); font-size:16px; line-height:1.4;
+  padding-block:16px 40px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  -webkit-tap-highlight-color:transparent;
+}
+.wrap{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{margin:0;font-family:var(--font-display);font-weight:700;font-size:1.7rem;text-wrap:balance}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+
+.seg{display:flex;border:1.5px solid var(--line);border-radius:999px;padding:3px}
+.seg button{flex:1;background:transparent;border:0;border-radius:999px;padding:9px 10px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--teal);color:var(--bg)}
+.seg.wrapseg{flex-wrap:wrap;border-radius:18px}
+.seg.wrapseg button{min-width:30%}
+
+.btn{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 14px;font-weight:600}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.panel h2{margin:0;font-size:1rem;font-weight:600}
+details.panel{gap:0}
+details>summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px}
+details>summary::-webkit-details-marker{display:none}
+details>summary::after{content:"+";color:var(--muted);font-size:1.3rem;line-height:1}
+details[open]>summary::after{content:"−"}
+.inner{display:flex;flex-direction:column;gap:12px;padding-top:12px}
+.foot{color:var(--muted);font-size:.85rem;text-wrap:pretty;margin:0}
+.fld{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fld>span{color:var(--muted);font-size:.85rem;font-weight:500}
+.txt,.sel{width:100%;min-width:0;background:var(--bg);color:var(--fg);border:1.5px solid var(--line);border-radius:10px;padding:10px;font:inherit;font-variant-numeric:tabular-nums}
+.txt::placeholder{color:var(--muted)}
+
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.tile{background:var(--surface);border:1.5px solid var(--teal);border-radius:14px;padding:12px 10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile.src{background:var(--hl)}
+.tile b{font-family:var(--font-display);font-size:1.9rem;line-height:1.05;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tile span{color:var(--muted);font-size:.8rem}
+.lines{display:flex;flex-direction:column;gap:8px}
+.lines p{margin:0;text-wrap:pretty}
+.lines .alt{color:var(--muted)}
+.warn{color:var(--accent);font-weight:600}
+
+.tbl{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.tbl th{text-align:left;color:var(--muted);font-size:.8rem;font-weight:500;padding:6px 8px;border-bottom:1px solid var(--line)}
+.tbl td{padding:0;border-bottom:1px solid var(--line)}
+.tbl td>*{display:block;padding:8px}
+.tbl tr.on td{background:var(--hl)}
+.tbl button.pick{width:100%;text-align:left;background:transparent;border:0;font-weight:600}
+.tbl-wrap{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:12px}
+[hidden]{display:none!important}
+@media (max-width:380px){.tile b{font-size:1.6rem}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <h1>Hook and Needle Size Converter</h1>
+
+  <div class="seg wrapseg" id="kindSeg" role="group" aria-label="What are you converting"></div>
+
+  <div class="panel">
+    <h2>Which size do you have</h2>
+    <div class="seg" id="sysSeg" role="group" aria-label="Size system"></div>
+    <label class="fld"><span id="selLabel">Size</span><select class="sel" id="sizeSel"></select></label>
+    <label class="fld"><span>Or enter a diameter in millimetres</span><input class="txt" id="custom" type="text" inputmode="decimal" autocomplete="off" placeholder="For example, 3.4"></label>
+    <p class="foot">If the millimetre field is filled in, the result is based on it and shows the nearest standard size. Clear the field to go back to choosing from the list.</p>
+  </div>
+
+  <div class="tiles" id="tiles" aria-live="polite"></div>
+  <div class="lines" id="lines" role="status"></div>
+  <div><button class="btn" type="button" id="copyBtn">Copy result</button></div>
+  <div class="foot" id="copyMsg" role="status"></div>
+  <textarea class="txt" id="copyBox" readonly hidden rows="2" aria-label="Text to copy"></textarea>
+
+  <details class="panel">
+    <summary>Full size chart</summary>
+    <div class="inner">
+      <p class="foot" id="tblHint"></p>
+      <div class="tbl-wrap"><table class="tbl" id="tbl"></table></div>
+    </div>
+  </details>
+
+  <details class="panel">
+    <summary>How to read the sizes</summary>
+    <div class="inner">
+      <p class="foot"><b>Millimetres</b> give the real diameter and are the most reliable system. If a pattern lists millimetres, go by them.</p>
+      <p class="foot"><b>US</b>: for needles, a bigger number means thicker needles. Hooks may have a letter and a number (for example G-6), and the further along the alphabet the letter, the thicker the hook.</p>
+      <p class="foot"><b>UK and Canada</b>: an old system that works the other way round: the bigger the number, the thinner the needle or hook. Sizes 0, 00 and 000 are the thickest on this scale.</p>
+      <p class="foot">The match between systems is approximate, and numbers from different manufacturers sometimes differ by a quarter of a millimetre. If a system has no number for a size, the chart shows a dash. If an exact size matters for your project, check it with a gauge swatch.</p>
+    </div>
+  </details>
+
+  <p class="foot">The charts are based on common reference data (including Craft Yarn Council standards). Your choice is saved in this browser on this device.</p>
+</div>
+
+<script>
+(function(){
+  document.documentElement.lang='en';
+  var KEY='needle-conv-v1';
+  var $=function(id){return document.getElementById(id)};
+  // rows: [mm, US, UK]; null means no standard number in that system
+  var DATA={
+    needles:{
+      name:'Needles', title:'Needles', sys:['mm','us','uk'],
+      rows:[
+        [1.5,'000','16'],[1.75,'00','15'],[2.0,'0','14'],[2.25,'1','13'],[2.5,'1½',null],[2.75,'2','12'],[3.0,'2½','11'],
+        [3.25,'3','10'],[3.5,'4',null],[3.75,'5','9'],[4.0,'6','8'],[4.5,'7','7'],[5.0,'8','6'],[5.5,'9','5'],
+        [6.0,'10','4'],[6.5,'10½','3'],[7.0,'10¾','2'],[7.5,null,'1'],[8.0,'11','0'],[9.0,'13','00'],[10.0,'15','000'],
+        [12.0,'16',null],[12.75,'17',null],[15.0,'19',null],[19.0,'35',null],[25.0,'50',null]
+      ]
+    },
+    hooks:{
+      name:'Hooks', title:'Hooks', sys:['mm','us','uk'],
+      rows:[
+        [2.0,null,'14'],[2.25,'B-1','13'],[2.5,null,'12'],[2.75,'C-2',null],[3.0,null,'11'],[3.25,'D-3','10'],[3.5,'E-4','9'],
+        [3.75,'F-5','9'],[4.0,'G-6','8'],[4.5,'7','7'],[5.0,'H-8','6'],[5.5,'I-9','5'],[6.0,'J-10','4'],[6.5,'K-10½','3'],
+        [7.0,null,'2'],[8.0,'L-11','0'],[9.0,'M/N-13','00'],[10.0,'N/P-15','000'],[11.5,'P-16',null],[15.0,'P/Q',null],
+        [16.0,'Q',null],[19.0,'S',null]
+      ]
+    },
+    steel:{
+      name:'Fine hooks', title:'Fine (steel) hooks', sys:['mm','us'],
+      rows:[
+        [0.75,'14',null],[0.85,'13',null],[1.0,'12',null],[1.1,'11',null],[1.3,'10',null],[1.4,'9',null],[1.5,'8',null],
+        [1.65,'7',null],[1.8,'6',null],[1.9,'5',null],[2.0,'4',null],[2.1,'3',null],[2.25,'2',null],[2.75,'1',null],
+        [3.25,'0',null],[3.5,'00',null]
+      ]
+    }
+  };
+  var KINDS=['needles','hooks','steel'];
+  var SYS={mm:'Millimetres',us:'US',uk:'UK'};
+  var S={kind:'needles',sys:'mm',sel:10,custom:''};
+
+  function load(){
+    try{
+      var o=JSON.parse(localStorage.getItem(KEY)||'null');
+      if(o&&typeof o==='object'){
+        if(KINDS.indexOf(o.kind)>=0) S.kind=o.kind;
+        if(DATA[S.kind].sys.indexOf(o.sys)>=0) S.sys=o.sys;
+        var n=parseInt(o.sel,10); if(n>=0&&n<DATA[S.kind].rows.length) S.sel=n;
+        S.custom=String(o.custom||'').slice(0,8);
+      }
+    }catch(e){}
+    if(!(S.sel>=0&&S.sel<DATA[S.kind].rows.length)) S.sel=0;
+  }
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+  function pn(v){v=parseFloat(String(v).replace(',','.').replace(/\s/g,''));return isNaN(v)?0:v}
+  function fm(n){return n.toLocaleString('en-GB',{minimumFractionDigits:0,maximumFractionDigits:2})}
+  function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  function cur(){return DATA[S.kind]}
+  function label(row,sys){
+    if(sys==='mm') return fm(row[0])+' mm';
+    var v=row[sys==='us'?1:2];
+    return v?(sys==='us'?'US ':'UK ')+v:null;
+  }
+  function nearest(mm){
+    var rows=cur().rows, best=0, d=1e9;
+    rows.forEach(function(r,i){var x=Math.abs(r[0]-mm); if(x<d){d=x;best=i;}});
+    return {idx:best,diff:d};
+  }
+
+  function buildKinds(){
+    var box=$('kindSeg'); box.innerHTML='';
+    KINDS.forEach(function(k){
+      var b=document.createElement('button'); b.type='button'; b.setAttribute('data-kind',k); b.textContent=DATA[k].name;
+      b.addEventListener('click',function(){changeKind(k)});
+      box.appendChild(b);
+    });
+  }
+  function buildSys(){
+    var box=$('sysSeg'); box.innerHTML='';
+    cur().sys.forEach(function(s){
+      var b=document.createElement('button'); b.type='button'; b.setAttribute('data-sys',s); b.textContent=SYS[s];
+      b.addEventListener('click',function(){changeSys(s)});
+      box.appendChild(b);
+    });
+  }
+  function changeKind(k){
+    var mm=cur().rows[S.sel][0];
+    S.kind=k;
+    if(cur().sys.indexOf(S.sys)<0) S.sys='mm';
+    S.sel=nearest(mm).idx;
+    ensureSel(); save(); render();
+  }
+  function changeSys(s){S.sys=s; ensureSel(); save(); render();}
+  // keep the selected row valid for the chosen system (row must have a number in that system)
+  function ensureSel(){
+    var rows=cur().rows, sys=S.sys;
+    if(label(rows[S.sel],sys)) return;
+    var mm=rows[S.sel][0], best=-1, d=1e9;
+    rows.forEach(function(r,i){if(label(r,sys)){var x=Math.abs(r[0]-mm); if(x<d){d=x;best=i;}}});
+    if(best>=0) S.sel=best;
+  }
+
+  function active(){
+    var mm=pn(S.custom);
+    if(S.custom.trim()!==''&&mm>0){var n=nearest(mm); return {idx:n.idx,custom:mm,diff:n.diff};}
+    return {idx:S.sel,custom:0,diff:0};
+  }
+
+  function render(){
+    var k=S.kind, d=cur();
+    var kb=$('kindSeg').children; for(var i=0;i<kb.length;i++) kb[i].setAttribute('aria-pressed',kb[i].getAttribute('data-kind')===k);
+    buildSys();
+    var sb=$('sysSeg').children; for(var j=0;j<sb.length;j++) sb[j].setAttribute('aria-pressed',sb[j].getAttribute('data-sys')===S.sys);
+    $('selLabel').textContent='Size: '+SYS[S.sys];
+    var opts='';
+    d.rows.forEach(function(r,idx){
+      var l=label(r,S.sys); if(!l) return;
+      var t=S.sys==='mm'?l:l+' · '+fm(r[0])+' mm';
+      opts+='<option value="'+idx+'"'+(idx===S.sel?' selected':'')+'>'+esc(t)+'</option>';
+    });
+    $('sizeSel').innerHTML=opts;
+    $('custom').value=S.custom;
+    renderResult(); renderTable();
+  }
+
+  function renderResult(){
+    var d=cur(), a=active(), row=d.rows[a.idx], tiles='', lines='';
+    var cells=[['mm',fm(row[0]),'millimetres'],['us',row[1],'US'],['uk',row[2],'UK']];
+    cells.forEach(function(c){
+      if(d.sys.indexOf(c[0])<0) return;
+      var v=c[1];
+      tiles+='<div class="tile'+(c[0]===S.sys&&!a.custom?' src':'')+'"><b>'+(v?esc(v):'—')+'</b><span>'+c[2]+(v?'':', no number')+'</span></div>';
+    });
+    $('tiles').innerHTML=tiles;
+    $('tiles').style.gridTemplateColumns='repeat('+d.sys.length+',minmax(0,1fr))';
+    if(a.custom){
+      if(a.diff<0.005) lines+='<p>A diameter of '+fm(a.custom)+' mm matches a standard size.</p>';
+      else lines+='<p>You entered <b>'+fm(a.custom)+' mm</b>. The nearest standard size is <b>'+fm(row[0])+' mm</b> (a difference of '+fm(Math.round(a.diff*100)/100)+' mm).</p>';
+      if(a.diff>0.25) lines+='<p class="warn">The difference is noticeable: there are no standard sizes nearby. For an exact match, go by millimetres.</p>';
+    }
+    var rows=d.rows, prev=rows[a.idx-1], next=rows[a.idx+1];
+    var nb=[]; if(prev) nb.push(fm(prev[0])+' mm'); if(next) nb.push(fm(next[0])+' mm');
+    if(nb.length) lines+='<p class="alt">Neighbouring sizes: '+nb.join(' and ')+'.</p>';
+    if(d.sys.indexOf('uk')>=0&&row[2]){
+      var un=/^[1-9]\d*$/.test(row[2])?parseInt(row[2],10):0;
+      lines+='<p class="alt">'+(un?'In the UK system a bigger number means a thinner tool: UK '+un+' is thinner than UK '+(un-1)+'.':'Sizes 0, 00 and 000 are the thickest in the UK system: the more zeros, the thicker.')+'</p>';
+    }
+    if(d.sys.indexOf('uk')>=0&&!row[2]) lines+='<p class="alt">The UK system has no standard number for this diameter.</p>';
+    if(!row[1]) lines+='<p class="alt">The US system has no standard number for this diameter.</p>';
+    if(S.kind==='steel') lines+='<p class="alt">Fine hooks are for lace and thread. Their numbers differ from those of regular hooks, so do not mix up the two scales. UK numbers are not given for them here.</p>';
+    lines+='<p class="alt">The match is approximate: it may differ between manufacturers.</p>';
+    $('lines').innerHTML=lines;
+  }
+
+  function renderTable(){
+    var d=cur(), a=active(), h='<tr><th>Millimetres</th>';
+    if(d.sys.indexOf('us')>=0) h+='<th>US</th>';
+    if(d.sys.indexOf('uk')>=0) h+='<th>UK</th>';
+    h+='</tr>';
+    d.rows.forEach(function(r,i){
+      h+='<tr'+(i===a.idx?' class="on"':'')+'><td><button class="pick" type="button" data-i="'+i+'">'+fm(r[0])+'</button></td>';
+      if(d.sys.indexOf('us')>=0) h+='<td><span>'+(r[1]?esc(r[1]):'—')+'</span></td>';
+      if(d.sys.indexOf('uk')>=0) h+='<td><span>'+(r[2]?esc(r[2]):'—')+'</span></td>';
+      h+='</tr>';
+    });
+    $('tbl').innerHTML=h;
+    $('tblHint').textContent=d.title+'. Tap a size in millimetres to select it.';
+  }
+
+  function resultText(){
+    var d=cur(), a=active(), r=d.rows[a.idx], p=[fm(r[0])+' mm'];
+    if(d.sys.indexOf('us')>=0) p.push(r[1]?'US '+r[1]:'US —');
+    if(d.sys.indexOf('uk')>=0) p.push(r[2]?'UK '+r[2]:'UK —');
+    return d.title+': '+p.join(' = ');
+  }
+  function copyText(text){
+    var msg=$('copyMsg'), box=$('copyBox');
+    var fail=function(){box.hidden=false;box.value=text;box.focus();box.select();msg.textContent='Could not copy automatically. The text is selected below, copy it manually.'};
+    var ok=function(){box.hidden=true;msg.textContent='Copied.'};
+    try{navigator.clipboard.writeText(text).then(ok,fail)}catch(e){fail()}
+  }
+
+  $('sizeSel').addEventListener('change',function(e){S.sel=parseInt(e.target.value,10)||0; S.custom=''; save(); render();});
+  $('custom').addEventListener('input',function(e){S.custom=e.target.value.slice(0,8); save(); renderResult(); renderTable();});
+  $('tbl').addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('button.pick'); if(!b) return;
+    S.sel=parseInt(b.getAttribute('data-i'),10)||0; S.custom=''; ensureSel(); save(); render();
+  });
+  $('copyBtn').addEventListener('click',function(){copyText(resultText())});
+
+  load(); buildKinds(); ensureSel(); render();
+})();
+</script>
+<script>
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})})}
+</script>
+</body>
+</html>
